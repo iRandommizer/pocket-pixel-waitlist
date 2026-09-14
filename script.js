@@ -348,7 +348,7 @@
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
         var baseX = Number(el.dataset.x) + 30, baseY = Number(el.dataset.y) + 40;
         var outside = Math.min(1, Math.sqrt(baseX * baseX + baseY * baseY) / (maxMag || 1));
-        var hold = 1 - 0.55 * outside;
+        var hold = 1 - 0.66 * outside;
         var ox = baseX * 1.1 * hold, oy = baseY * 1.1 * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
