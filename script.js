@@ -322,6 +322,7 @@
     perspective: 1800,
     coverage: 0.75,
     window: 0.34,
+    stagger: 0.08,
     headStart: 0.12,
     farZ: -2900,
     nearZ: 480,
@@ -362,16 +363,16 @@
 
     // every card gets an identical-shaped, identical-duration arrival: it
     // fades/zooms in, holds, then fades/zooms out over the same fraction of
-    // scroll (TUNE.window). Only WHEN that window starts differs, staggered
-    // by each card's authored depth order, so cards still arrive in
-    // sequence — this makes "the same amount of scroll" produce the same
-    // motion for every card. TUNE.headStart pulls every window earlier so
-    // the closest card is already fully visible at rest, with no scroll
-    // needed.
+    // scroll (TUNE.window) — how LONG each card is active for. TUNE.stagger
+    // is a separate knob for the GAP between cards' starts, so how many
+    // cards overlap in the background at once (~window/stagger) can be
+    // tuned independently of how long any one card's own arc lasts.
+    // TUNE.headStart pulls every window earlier so the closest card is
+    // already fully visible at rest, with no scroll needed.
     var sorted = cards.slice().sort(function (a, b) { return Number(b.dataset.z) - Number(a.dataset.z); });
     cards.forEach(function (el) {
       var rank = sorted.indexOf(el);
-      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - TUNE.window) - TUNE.headStart;
+      var offset = rank * TUNE.stagger - TUNE.headStart;
       var t = Math.max(0, Math.min(1, (p - offset) / TUNE.window));
       var z = TUNE.farZ + t * (TUNE.nearZ - TUNE.farZ);
       var opacity;
@@ -409,6 +410,7 @@
       ["perspective", 500, 4000, 10, "Perspective (px)"],
       ["coverage", 0.2, 1.2, 0.01, "Coverage (% of stage)"],
       ["window", 0.1, 0.9, 0.01, "Window (scroll frac. per card)"],
+      ["stagger", 0.02, 0.3, 0.01, "Stagger (gap between card starts)"],
       ["headStart", 0, 0.5, 0.01, "Head start"],
       ["farZ", -6000, -500, 10, "Far Z"],
       ["nearZ", 0, 1200, 10, "Near Z"],
