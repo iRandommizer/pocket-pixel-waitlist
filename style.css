@@ -1,0 +1,16 @@
+html,body{margin:0;padding:0;background:#07080a}
+*{box-sizing:border-box}
+a{color:#ff7300;text-decoration:none}
+a:hover{color:#fff0d2}
+
+@keyframes ppHover{0%{transform:translate(-50%,0px)}6.25%{transform:translate(-50%,-2px)}12.5%{transform:translate(-50%,-4px)}18.75%{transform:translate(-50%,-6px)}25%{transform:translate(-50%,-8px)}31.25%{transform:translate(-50%,-6px)}37.5%{transform:translate(-50%,-4px)}43.75%{transform:translate(-50%,-2px)}50%{transform:translate(-50%,0px)}56.25%{transform:translate(-50%,2px)}62.5%{transform:translate(-50%,4px)}68.75%{transform:translate(-50%,6px)}75%{transform:translate(-50%,8px)}81.25%{transform:translate(-50%,6px)}87.5%{transform:translate(-50%,4px)}93.75%{transform:translate(-50%,2px)}100%{transform:translate(-50%,0px)}}
+@keyframes ppBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
+@keyframes ppShake{0%,100%{transform:translate(0,0)}20%{transform:translate(-2px,1px)}40%{transform:translate(2px,-1px)}60%{transform:translate(-1px,-2px)}80%{transform:translate(1px,2px)}}
+
+/* hover/focus states that the design reference expressed as pseudo-attributes */
+.pp-poke-btn:hover{background:#131a15;border-color:#ff7300}
+.pp-cta-hover:hover{background:#ff8f33}
+.pp-field-focus:focus{border-color:#ff7300}
+.pp-field-dashed-focus:focus{border-style:solid;border-color:#ff7300}
+
+.pp-chip.pp-chip-selected{color:#050706;border-color:#ff7300;background:#ff7300}
