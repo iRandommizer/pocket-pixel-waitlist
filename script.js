@@ -325,27 +325,41 @@
     var p = travel > 0 ? Math.max(0, Math.min(1, (top - wrap.getBoundingClientRect().top) / travel)) : 0;
     state.p = p;
     var cards = Array.from(stage.querySelectorAll(".pp-card"));
-    // how far off-center each card's own authored position sits, relative to
-    // the most extreme card — the further out a card naturally is, the more
-    // it gets pulled toward the middle, so the composition doesn't scatter
-    // chaotically at the edges
+
+    // size the whole composition so its outermost cards land at ~75% of the
+    // stage's actual width/height, instead of a guessed multiplier
+    var stageRect = stage.getBoundingClientRect();
+    var COVERAGE = 0.75;
+    var maxBaseX = 0, maxBaseY = 0;
+    cards.forEach(function (el) {
+      maxBaseX = Math.max(maxBaseX, Math.abs(Number(el.dataset.x)));
+      maxBaseY = Math.max(maxBaseY, Math.abs(Number(el.dataset.y)));
+    });
+    var scaleX = maxBaseX > 0 ? (stageRect.width * COVERAGE / 2) / maxBaseX : 1;
+    var scaleY = maxBaseY > 0 ? (stageRect.height * COVERAGE / 2) / maxBaseY : 1;
+
+    // how far off-center each card's own position sits (post-scale), relative
+    // to the most extreme card — used below to pull outlying cards toward the
+    // middle as they progress, so it reads as motion, not a fixed offset
     var maxMag = 0;
     cards.forEach(function (el) {
-      var bx = Number(el.dataset.x) + 30, by = Number(el.dataset.y) + 40;
+      var bx = Number(el.dataset.x) * scaleX, by = Number(el.dataset.y) * scaleY;
       maxMag = Math.max(maxMag, Math.sqrt(bx * bx + by * by));
     });
+
     // every card gets an identical-shaped, identical-duration arrival: it
     // fades/zooms in, holds, then fades/zooms out over the same fraction of
     // scroll (WINDOW). Only WHEN that window starts differs, staggered by
     // each card's authored depth order, so cards still arrive in sequence —
     // this makes "the same amount of scroll" produce the same motion for
     // every card, instead of near cards rushing through their arc while far
-    // cards linger.
-    var WINDOW = 0.34, FAR_Z = -2900, NEAR_Z = 480;
+    // cards linger. HEAD_START pulls every window earlier so the closest
+    // card is already fully visible at rest, with no scroll needed.
+    var WINDOW = 0.34, FAR_Z = -2900, NEAR_Z = 480, HEAD_START = 0.12;
     var sorted = cards.slice().sort(function (a, b) { return Number(b.dataset.z) - Number(a.dataset.z); });
     cards.forEach(function (el) {
       var rank = sorted.indexOf(el);
-      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - WINDOW);
+      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - WINDOW) - HEAD_START;
       var t = Math.max(0, Math.min(1, (p - offset) / WINDOW));
       var z = FAR_Z + t * (NEAR_Z - FAR_Z);
       var opacity;
@@ -355,10 +369,12 @@
         var fadeIn = Math.min(1, t / 0.18);
         var fadeOut = t > 0.82 ? Math.max(0, 1 - (t - 0.82) / 0.18) : 1;
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
-        var baseX = Number(el.dataset.x) + 30, baseY = Number(el.dataset.y) + 40;
+        var baseX = Number(el.dataset.x) * scaleX, baseY = Number(el.dataset.y) * scaleY;
         var outside = Math.min(1, Math.sqrt(baseX * baseX + baseY * baseY) / (maxMag || 1));
-        var hold = 1 - 0.35 * outside;
-        var ox = baseX * 1.1 * hold, oy = baseY * 1.1 * hold;
+        // pull ramps in as the card advances through ITS OWN window, so it
+        // reads as the card visibly closing in toward center, not a static offset
+        var hold = 1 - 0.5 * outside * t;
+        var ox = baseX * hold, oy = baseY * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
       }
