@@ -325,8 +325,8 @@
   // (too short). Defining them in vh and DERIVING scrollLength from them
   // makes that mismatch structurally impossible.
   var TUNE = {
-    perspective: 1800,
-    coverage: 0.75,
+    perspective: 4000,
+    coverage: 1.1,
     windowVh: 105,
     staggerVh: 17,
     headStartVh: 55,
@@ -334,7 +334,7 @@
     farZ: -2900,
     nearZ: 480,
     fadeEdge: 0.18,
-    pull: 0.5,
+    pull: 0.64,
   };
 
   // total physical scroll the flythrough needs: from the earliest card's
