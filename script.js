@@ -432,10 +432,80 @@
     if (stageWrap) stageWrap.style.perspective = TUNE.perspective + "px";
   }
 
-  // live debug panel for tuning the flythrough — visit the page with
-  // ?tune=1 to see it. Never shown otherwise, so it can't reach real visitors.
+  // essay photo pan/zoom — object-position picks which part of the (full,
+  // un-cropped) source is shown at cover-scale; transform: scale() then
+  // zooms in further from the center of that view. Independent controls.
+  var PHOTO_TUNE = { zoom: 1, panX: 50, panY: 50 };
+  function applyPhotoTune() {
+    var img = $("essayPhoto");
+    if (!img) return;
+    img.style.objectPosition = PHOTO_TUNE.panX + "% " + PHOTO_TUNE.panY + "%";
+    img.style.transform = "scale(" + PHOTO_TUNE.zoom + ")";
+  }
+
+  // one slider row bound directly to a field on the given tune object
+  function addSliderRow(panel, obj, key, min, max, step, label, onChange) {
+    var row = document.createElement("div");
+    row.style.marginBottom = "10px";
+    var lab = document.createElement("div");
+    lab.style.cssText = "font-size:13px;color:#b0a893;margin-bottom:2px;";
+    var valSpan = document.createElement("span");
+    valSpan.style.color = "#ff7300";
+    valSpan.textContent = obj[key];
+    lab.textContent = label + ": ";
+    lab.appendChild(valSpan);
+    var input = document.createElement("input");
+    input.type = "range";
+    input.min = String(min);
+    input.max = String(max);
+    input.step = String(step);
+    input.value = String(obj[key]);
+    input.style.width = "100%";
+    input.addEventListener("input", function () {
+      obj[key] = Number(input.value);
+      valSpan.textContent = obj[key];
+      onChange(key);
+    });
+    row.appendChild(lab);
+    row.appendChild(input);
+    panel.appendChild(row);
+  }
+
+  function addSectionTitle(panel, text, marginTop) {
+    var title = document.createElement("div");
+    title.textContent = text;
+    title.style.cssText = "font-family:'Tiny5',monospace;font-size:13px;letter-spacing:.06em;" +
+      "color:#ff7300;margin-bottom:10px;" + (marginTop ? "margin-top:16px;border-top:1px dashed #24322b;padding-top:14px;" : "");
+    panel.appendChild(title);
+  }
+
+  // creates a <pre> JSON readout (not yet attached — caller places it) and
+  // returns { el, refresh } so it can be appended after that section's sliders
+  function makeDump(getObj) {
+    var dump = document.createElement("pre");
+    dump.style.cssText = "white-space:pre-wrap;word-break:break-all;border-top:1px dashed #24322b;" +
+      "margin-top:10px;padding-top:8px;font-size:12px;color:#8f9e8a;";
+    return {
+      el: dump,
+      refresh: function () { dump.textContent = JSON.stringify(getObj(), null, 1); },
+    };
+  }
+
+  // live debug panel for tuning the flythrough and the essay photo — visit
+  // the page with ?tune=1 to see it. Never shown otherwise, so it can't
+  // reach real visitors.
   function buildTunePanel() {
-    var FIELDS = [
+    var panel = document.createElement("div");
+    panel.style.cssText = "position:fixed;top:0;right:0;bottom:0;z-index:999;overflow-y:auto;" +
+      "width:230px;padding:12px;background:#0a0d0bf2;border-left:1px solid #ff7300;" +
+      "font-family:'VT323',monospace;font-size:15px;color:#efe6d2;";
+
+    addSectionTitle(panel, "FLYTHROUGH TUNING", false);
+    var flyDump = makeDump(function () {
+      var count = refs.stage ? refs.stage.querySelectorAll(".pp-card").length : 0;
+      return Object.assign({}, TUNE, { computedScrollLengthVh: computeScrollLengthVh(count) });
+    });
+    [
       ["perspective", 500, 4000, 10, "Perspective (px)"],
       ["coverage", 0.2, 1.2, 0.01, "Coverage (% of stage)"],
       ["windowVh", 20, 400, 5, "Window (vh per card)"],
@@ -446,65 +516,38 @@
       ["nearZ", 0, 1200, 10, "Near Z"],
       ["fadeEdge", 0.02, 0.4, 0.01, "Fade edge frac."],
       ["pull", 0, 1, 0.01, "Centering pull strength"],
-    ];
-    var panel = document.createElement("div");
-    panel.style.cssText = "position:fixed;top:0;right:0;bottom:0;z-index:999;overflow-y:auto;" +
-      "width:230px;padding:12px;background:#0a0d0bf2;border-left:1px solid #ff7300;" +
-      "font-family:'VT323',monospace;font-size:15px;color:#efe6d2;";
-    var title = document.createElement("div");
-    title.textContent = "FLYTHROUGH TUNING";
-    title.style.cssText = "font-family:'Tiny5',monospace;font-size:13px;letter-spacing:.06em;color:#ff7300;margin-bottom:10px;";
-    panel.appendChild(title);
-
-    var dump = document.createElement("pre");
-    dump.style.cssText = "white-space:pre-wrap;word-break:break-all;border-top:1px dashed #24322b;" +
-      "margin-top:10px;padding-top:8px;font-size:12px;color:#8f9e8a;";
-    function refreshDump() {
-      var count = refs.stage ? refs.stage.querySelectorAll(".pp-card").length : 0;
-      var withComputed = Object.assign({}, TUNE, {
-        computedScrollLengthVh: computeScrollLengthVh(count),
-      });
-      dump.textContent = JSON.stringify(withComputed, null, 1);
-    }
-
-    FIELDS.forEach(function (f) {
-      var key = f[0], min = f[1], max = f[2], step = f[3], label = f[4];
-      var row = document.createElement("div");
-      row.style.marginBottom = "10px";
-      var lab = document.createElement("div");
-      lab.style.cssText = "font-size:13px;color:#b0a893;margin-bottom:2px;";
-      var valSpan = document.createElement("span");
-      valSpan.style.color = "#ff7300";
-      valSpan.textContent = TUNE[key];
-      lab.textContent = label + ": ";
-      lab.appendChild(valSpan);
-      var input = document.createElement("input");
-      input.type = "range";
-      input.min = String(min);
-      input.max = String(max);
-      input.step = String(step);
-      input.value = String(TUNE[key]);
-      input.style.width = "100%";
-      input.addEventListener("input", function () {
-        TUNE[key] = Number(input.value);
-        valSpan.textContent = TUNE[key];
+    ].forEach(function (f) {
+      addSliderRow(panel, TUNE, f[0], f[1], f[2], f[3], f[4], function (key) {
         if (key === "perspective") applyPerspective();
         if (key === "windowVh" || key === "staggerVh" || key === "headStartVh" || key === "endBuffer") applyScrollLength();
         flyCards();
-        refreshDump();
+        flyDump.refresh();
       });
-      row.appendChild(lab);
-      row.appendChild(input);
-      panel.appendChild(row);
     });
+    panel.appendChild(flyDump.el);
+    flyDump.refresh();
 
-    refreshDump();
-    panel.appendChild(dump);
+    addSectionTitle(panel, "ESSAY PHOTO", true);
+    var photoDump = makeDump(function () { return PHOTO_TUNE; });
+    [
+      ["zoom", 1, 3, 0.01, "Zoom"],
+      ["panX", 0, 100, 1, "Pan X (%)"],
+      ["panY", 0, 100, 1, "Pan Y (%)"],
+    ].forEach(function (f) {
+      addSliderRow(panel, PHOTO_TUNE, f[0], f[1], f[2], f[3], f[4], function () {
+        applyPhotoTune();
+        photoDump.refresh();
+      });
+    });
+    panel.appendChild(photoDump.el);
+    photoDump.refresh();
+
     document.body.appendChild(panel);
     applyPerspective();
   }
 
   if (location.search.indexOf("tune=1") !== -1) buildTunePanel();
+  applyPhotoTune();
 
   // videos play ambiently whenever their card is meaningfully visible, not
   // only when tapped — muted + playsinline keep this within autoplay policy
