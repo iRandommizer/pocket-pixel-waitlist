@@ -14,3 +14,5 @@ a:hover{color:#fff0d2}
 .pp-field-dashed-focus:focus{border-style:solid;border-color:#ff7300}
 
 .pp-chip.pp-chip-selected{color:#050706;border-color:#ff7300;background:#ff7300}
+.pp-lang-btn:hover{border-color:#3a4a3f}
+@keyframes ppChev{0%{opacity:.16}22%{opacity:1}55%,100%{opacity:.16}}

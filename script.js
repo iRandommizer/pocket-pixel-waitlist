@@ -12,8 +12,9 @@
       heroH1: 'UMA TELINHA<br />PARA AS COISAS<br /><span style="color: #ff7300;">QUE VOCÊ AMA.</span>',
       heroSub: "Fotos, pixel art, gifs, pequenos momentos. Coloque na tela o que você quiser.",
       heroBtn: "ENTRAR NA FILA →",
-      heroCount: '64 na sua frente<span style="color: #ff7300; animation: ppBlink 1s steps(1) infinite;">_</span>',
       deskStamp: "FEITO NUMA MESA",
+      langNudge: "TAMBÉM EM EN / ES",
+      scrollCue: "MAIS INFORMAÇÕES",
       mediaLabel: "( NO APARELHO )",
       mediaHint: "ROLE PARA ATRAVESSAR · TOQUE UM CARTÃO PARA TOCAR",
       closeBtn: "FECHAR ✕",
@@ -62,8 +63,9 @@
       heroH1: 'UNA PANTALLITA<br />PARA LAS COSAS<br /><span style="color: #ff7300;">QUE AMAS.</span>',
       heroSub: "Fotos, pixel art, gifs, pequeños momentos. Pon en la pantalla lo que quieras.",
       heroBtn: "ENTRAR EN LA FILA →",
-      heroCount: '64 delante de ti<span style="color: #ff7300; animation: ppBlink 1s steps(1) infinite;">_</span>',
       deskStamp: "HECHO EN UN ESCRITORIO",
+      langNudge: "TAMBIÉN EN EN / PT",
+      scrollCue: "MÁS INFORMACIÓN",
       mediaLabel: "( EN EL APARATO )",
       mediaHint: "DESPLÁZATE PARA ATRAVESAR · TOCA UNA TARJETA",
       closeBtn: "CERRAR ✕",
@@ -169,6 +171,7 @@
     pokeOverlay: $("pokeOverlay"), pokeDevice: $("pokeDevice"), pokeFlash: $("pokeFlash"),
     formBlock: $("formBlock"), confirmBlock: $("confirmBlock"),
     headerCap: $("headerCap"), heroEmail: $("heroEmail"), heroSubmit: $("heroSubmit"),
+    heroAhead: $("heroAhead"),
   };
 
   // ---------- i18n ----------
@@ -190,13 +193,35 @@
     });
     renderQueue();
     document.querySelectorAll("[data-lang]").forEach(function (b) {
-      b.style.color = b.dataset.lang === lang ? "#ff7300" : "#7e8f79";
+      var on = b.dataset.lang === lang;
+      b.style.color = on ? "#050706" : "#7e8f79";
+      b.style.background = on ? "#ff7300" : "transparent";
+      b.style.borderColor = on ? "#ff7300" : "#24322b";
     });
   }
 
   document.querySelectorAll(".pp-lang-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () { setLang(btn.dataset.lang); });
+    btn.addEventListener("click", function () { setLang(btn.dataset.lang); dismissLangNudge(); });
   });
+
+  // ---------- language nudge ----------
+
+  var langNudge = $("langNudge");
+  function dismissLangNudge() {
+    if (!langNudge || langNudge.dataset.gone) return;
+    langNudge.dataset.gone = "1";
+    langNudge.style.opacity = "0";
+    langNudge.style.transform = "translateY(-4px)";
+    setTimeout(function () { langNudge.style.display = "none"; }, 260);
+    try { localStorage.setItem("pp-lang-nudge-2", "seen"); } catch (err) { /* private mode */ }
+  }
+  (function () {
+    var seen = null;
+    try { seen = localStorage.getItem("pp-lang-nudge-2"); } catch (err) { seen = null; }
+    if (seen && langNudge) langNudge.style.display = "none";
+  })();
+  var langNudgeX = $("langNudgeX");
+  if (langNudgeX) langNudgeX.addEventListener("click", dismissLangNudge);
 
   // ---------- reveal on scroll ----------
 
@@ -312,7 +337,13 @@
         var fadeIn = Math.min(1, (z + 2900) / 500);
         var fadeOut = z > 180 ? Math.max(0, 1 - (z - 180) / 300) : 1;
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
-        var ox = Number(el.dataset.x) + 30, oy = Number(el.dataset.y) + 40;
+        // the nearer a card gets, the more its lateral offset is pulled back
+        // toward the middle, so it drifts into view instead of sliding off-frame
+        var near = Math.max(0, Math.min(1, (z + 2900) / 3100));
+        // the pull stays almost flat through most of the flight and bites hard
+        // in the last stretch, so centering reads as arrival rather than drift
+        var hold = 1 - 0.60 * Math.pow(near, 1.6);
+        var ox = (Number(el.dataset.x) + 30) * 1.1 * hold, oy = (Number(el.dataset.y) + 40) * 1.1 * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
       }
@@ -560,8 +591,14 @@
     return "QUEUE: " + n + "/" + state.cap;
   }
 
+  var AHEAD_TEXT = { en: "ahead of you", pt: "na sua frente", es: "delante de ti" };
+
   function renderQueue() {
     if (refs.queueLabel) refs.queueLabel.textContent = queueText();
+    if (refs.heroAhead) {
+      refs.heroAhead.innerHTML = state.ahead + " " + (AHEAD_TEXT[state.lang] || AHEAD_TEXT.en) +
+        '<span style="color: #ff7300; animation: ppBlink 1s steps(1) infinite;">_</span>';
+    }
     if (refs.headerCap) {
       var n = state.ahead + 1;
       refs.headerCap.textContent = String(n).padStart(3, "0") + "/" + state.cap;
@@ -729,13 +766,15 @@
 
   var savedLang = null;
   try { savedLang = localStorage.getItem("pp-lang"); } catch (err) { savedLang = null; }
-  if (savedLang && savedLang !== "en") setLang(savedLang);
+  setLang(savedLang || "en");
 
   initQueue();
   renderQueue();
   fetchQueueCount();
 
+  var scrollCue = $("scrollCue");
   function onScroll() {
+    if (scrollCue) scrollCue.style.opacity = window.scrollY > 90 ? "0" : "1";
     var b = refs.bar;
     if (b) {
       var past = window.scrollY > window.innerHeight * 0.72;
