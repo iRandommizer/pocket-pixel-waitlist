@@ -324,8 +324,7 @@
     var travel = wrap.offsetHeight - stageH - top;
     var p = travel > 0 ? Math.max(0, Math.min(1, (top - wrap.getBoundingClientRect().top) / travel)) : 0;
     state.p = p;
-    var cards = stage.querySelectorAll(".pp-card");
-    var reach = 2900;
+    var cards = Array.from(stage.querySelectorAll(".pp-card"));
     // how far off-center each card's own authored position sits, relative to
     // the most extreme card — the further out a card naturally is, the more
     // it gets pulled toward the middle, so the composition doesn't scatter
@@ -335,20 +334,30 @@
       var bx = Number(el.dataset.x) + 30, by = Number(el.dataset.y) + 40;
       maxMag = Math.max(maxMag, Math.sqrt(bx * bx + by * by));
     });
+    // every card gets an identical-shaped, identical-duration arrival: it
+    // fades/zooms in, holds, then fades/zooms out over the same fraction of
+    // scroll (WINDOW). Only WHEN that window starts differs, staggered by
+    // each card's authored depth order, so cards still arrive in sequence —
+    // this makes "the same amount of scroll" produce the same motion for
+    // every card, instead of near cards rushing through their arc while far
+    // cards linger.
+    var WINDOW = 0.34, FAR_Z = -2900, NEAR_Z = 480;
+    var sorted = cards.slice().sort(function (a, b) { return Number(b.dataset.z) - Number(a.dataset.z); });
     cards.forEach(function (el) {
-      var z = Number(el.dataset.z) + p * reach;
+      var rank = sorted.indexOf(el);
+      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - WINDOW);
+      var t = Math.max(0, Math.min(1, (p - offset) / WINDOW));
+      var z = FAR_Z + t * (NEAR_Z - FAR_Z);
       var opacity;
       if (state.focused) {
         opacity = el === state.focused ? 1 : 0.05;
-      } else if (z > 480 || z < -3000) {
-        opacity = 0;
       } else {
-        var fadeIn = Math.min(1, (z + 2900) / 500);
-        var fadeOut = z > 180 ? Math.max(0, 1 - (z - 180) / 300) : 1;
+        var fadeIn = Math.min(1, t / 0.18);
+        var fadeOut = t > 0.82 ? Math.max(0, 1 - (t - 0.82) / 0.18) : 1;
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
         var baseX = Number(el.dataset.x) + 30, baseY = Number(el.dataset.y) + 40;
         var outside = Math.min(1, Math.sqrt(baseX * baseX + baseY * baseY) / (maxMag || 1));
-        var hold = 1 - 0.66 * outside;
+        var hold = 1 - 0.35 * outside;
         var ox = baseX * 1.1 * hold, oy = baseY * 1.1 * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
