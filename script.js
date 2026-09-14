@@ -319,6 +319,7 @@
   // ?tune=1 debug panel (see buildTunePanel below) — flyCards() re-reads
   // these every call, so dragging a slider takes effect immediately
   var TUNE = {
+    scrollLength: 480,
     perspective: 1800,
     coverage: 0.75,
     window: 0.34,
@@ -329,6 +330,15 @@
     fadeEdge: 0.18,
     pull: 0.5,
   };
+
+  // how much physical scroll (in vh) the whole flythrough spans — the
+  // actual lever for "does one wheel tick fly past several cards at once".
+  // A short span means a normal scroll covers a large fraction of it, so
+  // every card's motion jumps a lot per tick; a longer span spreads the
+  // same physical scroll over more of the animation, letting it "cook".
+  function applyScrollLength() {
+    if (refs.carWrap) refs.carWrap.style.height = TUNE.scrollLength + "vh";
+  }
 
   function flyCards() {
     var wrap = refs.carWrap, stage = refs.stage;
@@ -407,6 +417,7 @@
   // ?tune=1 to see it. Never shown otherwise, so it can't reach real visitors.
   function buildTunePanel() {
     var FIELDS = [
+      ["scrollLength", 150, 1000, 10, "Scroll length (vh)"],
       ["perspective", 500, 4000, 10, "Perspective (px)"],
       ["coverage", 0.2, 1.2, 0.01, "Coverage (% of stage)"],
       ["window", 0.1, 0.9, 0.01, "Window (scroll frac. per card)"],
@@ -455,6 +466,7 @@
         TUNE[key] = Number(input.value);
         valSpan.textContent = TUNE[key];
         if (key === "perspective") applyPerspective();
+        if (key === "scrollLength") applyScrollLength();
         flyCards();
         refreshDump();
       });
@@ -885,6 +897,7 @@
   try { savedLang = localStorage.getItem("pp-lang"); } catch (err) { savedLang = null; }
   setLang(savedLang || "en");
 
+  applyScrollLength();
   initQueue();
   renderQueue();
   fetchQueueCount();
@@ -902,9 +915,16 @@
     if (state.touch) scrollTilt();
     trackYou();
   }
-  window.addEventListener("scroll", onScroll, { passive: true });
-  window.addEventListener("resize", onScroll, { passive: true });
-  window.addEventListener("touchmove", onScroll, { passive: true });
-  onScroll();
+  // Mobile browsers throttle the "scroll" event hard during momentum/inertial
+  // scrolling (sometimes to just 1-2 events per flick) to save battery, which
+  // made the queue walkers look unresponsive mid-scroll and then "catch up"
+  // once it settled. Polling scroll position every animation frame instead
+  // of reacting to the scroll event keeps everything at full frame rate
+  // regardless of how the browser throttles the event itself.
+  function frameLoop() {
+    onScroll();
+    requestAnimationFrame(frameLoop);
+  }
+  requestAnimationFrame(frameLoop);
   if (state.touch) scrollTilt();
 })();
