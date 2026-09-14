@@ -318,26 +318,39 @@
   // all tunable constants for the flythrough motion, live-editable via the
   // ?tune=1 debug panel (see buildTunePanel below) — flyCards() re-reads
   // these every call, so dragging a slider takes effect immediately
+  // window/stagger/headStart are physical vh, not p-fractions — this is
+  // deliberate: if they were fractions of an independent scrollLength, any
+  // mismatch between the two either leaves a dead-scroll zone after the
+  // last card fades (scrollLength too long) or crams cards together
+  // (too short). Defining them in vh and DERIVING scrollLength from them
+  // makes that mismatch structurally impossible.
   var TUNE = {
-    scrollLength: 480,
     perspective: 1800,
     coverage: 0.75,
-    window: 0.34,
-    stagger: 0.08,
-    headStart: 0.12,
+    windowVh: 105,
+    staggerVh: 17,
+    headStartVh: 55,
+    endBuffer: 40,
     farZ: -2900,
     nearZ: 480,
     fadeEdge: 0.18,
     pull: 0.5,
   };
 
-  // how much physical scroll (in vh) the whole flythrough spans — the
-  // actual lever for "does one wheel tick fly past several cards at once".
-  // A short span means a normal scroll covers a large fraction of it, so
-  // every card's motion jumps a lot per tick; a longer span spreads the
-  // same physical scroll over more of the animation, letting it "cook".
+  // total physical scroll the flythrough needs: from the earliest card's
+  // start (which HEAD_START may pull before 0) to the last card's window
+  // end, plus a small deliberate tail so the last card's fade-out fully
+  // completes before hitting the bottom instead of cutting off abruptly.
+  function computeScrollLengthVh(cardCount) {
+    var n = Math.max(1, cardCount);
+    var lastOffset = (n - 1) * TUNE.staggerVh - TUNE.headStartVh;
+    return Math.max(50, lastOffset + TUNE.windowVh + TUNE.endBuffer);
+  }
+
   function applyScrollLength() {
-    if (refs.carWrap) refs.carWrap.style.height = TUNE.scrollLength + "vh";
+    if (!refs.carWrap || !refs.stage) return;
+    var count = refs.stage.querySelectorAll(".pp-card").length;
+    refs.carWrap.style.height = computeScrollLengthVh(count) + "vh";
   }
 
   function flyCards() {
@@ -373,17 +386,23 @@
 
     // every card gets an identical-shaped, identical-duration arrival: it
     // fades/zooms in, holds, then fades/zooms out over the same fraction of
-    // scroll (TUNE.window) — how LONG each card is active for. TUNE.stagger
+    // scroll — how LONG each card is active for (TUNE.windowVh). TUNE.staggerVh
     // is a separate knob for the GAP between cards' starts, so how many
-    // cards overlap in the background at once (~window/stagger) can be
+    // cards overlap in the background at once (~windowVh/staggerVh) can be
     // tuned independently of how long any one card's own arc lasts.
-    // TUNE.headStart pulls every window earlier so the closest card is
-    // already fully visible at rest, with no scroll needed.
+    // TUNE.headStartVh pulls every window earlier so the closest card is
+    // already fully visible at rest, with no scroll needed. All three are
+    // physical vh, converted to p-fractions here against the SAME
+    // scrollLength actually applied to carWrap, so there's never a mismatch.
+    var scrollLenVh = computeScrollLengthVh(cards.length);
+    var windowFrac = TUNE.windowVh / scrollLenVh;
+    var staggerFrac = TUNE.staggerVh / scrollLenVh;
+    var headStartFrac = TUNE.headStartVh / scrollLenVh;
     var sorted = cards.slice().sort(function (a, b) { return Number(b.dataset.z) - Number(a.dataset.z); });
     cards.forEach(function (el) {
       var rank = sorted.indexOf(el);
-      var offset = rank * TUNE.stagger - TUNE.headStart;
-      var t = Math.max(0, Math.min(1, (p - offset) / TUNE.window));
+      var offset = rank * staggerFrac - headStartFrac;
+      var t = Math.max(0, Math.min(1, (p - offset) / windowFrac));
       var z = TUNE.farZ + t * (TUNE.nearZ - TUNE.farZ);
       var opacity;
       if (state.focused) {
@@ -417,12 +436,12 @@
   // ?tune=1 to see it. Never shown otherwise, so it can't reach real visitors.
   function buildTunePanel() {
     var FIELDS = [
-      ["scrollLength", 150, 1000, 10, "Scroll length (vh)"],
       ["perspective", 500, 4000, 10, "Perspective (px)"],
       ["coverage", 0.2, 1.2, 0.01, "Coverage (% of stage)"],
-      ["window", 0.1, 0.9, 0.01, "Window (scroll frac. per card)"],
-      ["stagger", 0.02, 0.3, 0.01, "Stagger (gap between card starts)"],
-      ["headStart", 0, 0.5, 0.01, "Head start"],
+      ["windowVh", 20, 400, 5, "Window (vh per card)"],
+      ["staggerVh", 5, 150, 1, "Stagger (vh between card starts)"],
+      ["headStartVh", 0, 250, 5, "Head start (vh)"],
+      ["endBuffer", 0, 300, 5, "End buffer (vh)"],
       ["farZ", -6000, -500, 10, "Far Z"],
       ["nearZ", 0, 1200, 10, "Near Z"],
       ["fadeEdge", 0.02, 0.4, 0.01, "Fade edge frac."],
@@ -441,7 +460,11 @@
     dump.style.cssText = "white-space:pre-wrap;word-break:break-all;border-top:1px dashed #24322b;" +
       "margin-top:10px;padding-top:8px;font-size:12px;color:#8f9e8a;";
     function refreshDump() {
-      dump.textContent = JSON.stringify(TUNE, null, 1);
+      var count = refs.stage ? refs.stage.querySelectorAll(".pp-card").length : 0;
+      var withComputed = Object.assign({}, TUNE, {
+        computedScrollLengthVh: computeScrollLengthVh(count),
+      });
+      dump.textContent = JSON.stringify(withComputed, null, 1);
     }
 
     FIELDS.forEach(function (f) {
@@ -466,7 +489,7 @@
         TUNE[key] = Number(input.value);
         valSpan.textContent = TUNE[key];
         if (key === "perspective") applyPerspective();
-        if (key === "scrollLength") applyScrollLength();
+        if (key === "windowVh" || key === "staggerVh" || key === "headStartVh" || key === "endBuffer") applyScrollLength();
         flyCards();
         refreshDump();
       });
