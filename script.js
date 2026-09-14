@@ -326,6 +326,15 @@
     state.p = p;
     var cards = stage.querySelectorAll(".pp-card");
     var reach = 2900;
+    // how far off-center each card's own authored position sits, relative to
+    // the most extreme card — the further out a card naturally is, the more
+    // it gets pulled toward the middle, so the composition doesn't scatter
+    // chaotically at the edges
+    var maxMag = 0;
+    cards.forEach(function (el) {
+      var bx = Number(el.dataset.x) + 30, by = Number(el.dataset.y) + 40;
+      maxMag = Math.max(maxMag, Math.sqrt(bx * bx + by * by));
+    });
     cards.forEach(function (el) {
       var z = Number(el.dataset.z) + p * reach;
       var opacity;
@@ -337,13 +346,10 @@
         var fadeIn = Math.min(1, (z + 2900) / 500);
         var fadeOut = z > 180 ? Math.max(0, 1 - (z - 180) / 300) : 1;
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
-        // the nearer a card gets, the more its lateral offset is pulled back
-        // toward the middle, so it drifts into view instead of sliding off-frame
-        var near = Math.max(0, Math.min(1, (z + 2900) / 3100));
-        // the pull stays almost flat through most of the flight and bites hard
-        // in the last stretch, so centering reads as arrival rather than drift
-        var hold = 1 - 0.60 * Math.pow(near, 1.6);
-        var ox = (Number(el.dataset.x) + 30) * 1.1 * hold, oy = (Number(el.dataset.y) + 40) * 1.1 * hold;
+        var baseX = Number(el.dataset.x) + 30, baseY = Number(el.dataset.y) + 40;
+        var outside = Math.min(1, Math.sqrt(baseX * baseX + baseY * baseY) / (maxMag || 1));
+        var hold = 1 - 0.55 * outside;
+        var ox = baseX * 1.1 * hold, oy = baseY * 1.1 * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
       }
