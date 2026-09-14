@@ -113,7 +113,15 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbySwWO9xMM-jhCB86OnJQ1YOyFcjrLR7jq6ww6EV6vLRBaMK-AkG-C8nhWUygFsm3VC/exec";
+  // Talking to Apps Script directly (via JSONP, since it sends no CORS
+  // headers) worked from a normal browser but failed inside Instagram's
+  // in-app WebView — Google's bot/anti-abuse detection is sensitive to
+  // unusual User-Agent/referrer combos, and IG's WebView tripped it. This
+  // Cloudflare Worker calls Apps Script server-side (always a consistent
+  // request from Google's point of view, regardless of the visitor's
+  // browser) and returns real CORS headers, so plain fetch() works
+  // everywhere JSONP didn't.
+  var PROXY_URL = "https://pocket-pixel-proxy.irandommizer.workers.dev";
 
   var state = {
     lang: "en",
@@ -124,37 +132,36 @@
     p: 0,
   };
 
-  // Apps Script Web Apps send no CORS headers, so fetch() can't read a
-  // response back. A <script src="...&callback=fn"> tag isn't subject to
-  // CORS at all — JSONP is the reliable way to talk to it from a static page.
-  var jsonpSeq = 0;
-  function jsonp(params, onDone) {
-    var cbName = "ppCb" + (jsonpSeq++);
-    var script = document.createElement("script");
-    var finished = false;
-    var timer = setTimeout(function () { finish(new Error("timeout")); }, 10000);
-    function cleanup() {
-      delete window[cbName];
-      if (script.parentNode) script.parentNode.removeChild(script);
-      clearTimeout(timer);
-    }
-    function finish(err, data) {
-      if (finished) return;
-      finished = true;
-      cleanup();
-      onDone(err, data);
-    }
-    window[cbName] = function (data) { finish(null, data); };
-    script.onerror = function () { finish(new Error("network")); };
+  function withTimeout(promise, ms) {
+    return Promise.race([
+      promise,
+      new Promise(function (_, reject) { setTimeout(function () { reject(new Error("timeout")); }, ms); }),
+    ]);
+  }
+
+  function backendGet(params, onDone) {
     var qs = Object.keys(params).map(function (k) {
       return encodeURIComponent(k) + "=" + encodeURIComponent(params[k] == null ? "" : params[k]);
-    }).concat("callback=" + cbName).join("&");
-    script.src = APPS_SCRIPT_URL + "?" + qs;
-    document.body.appendChild(script);
+    }).join("&");
+    withTimeout(fetch(PROXY_URL + "?" + qs), 10000)
+      .then(function (r) { return r.json(); })
+      .then(function (data) { onDone(null, data); })
+      .catch(function (err) { onDone(err); });
+  }
+
+  function backendPost(body, onDone) {
+    withTimeout(fetch(PROXY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }), 10000)
+      .then(function (r) { return r.json(); })
+      .then(function (data) { onDone(null, data); })
+      .catch(function (err) { onDone(err); });
   }
 
   function fetchQueueCount() {
-    jsonp({ action: "queue" }, function (err, data) {
+    backendGet({ action: "queue" }, function (err, data) {
       if (err || !data) return; // keep the local placeholder rather than break the page
       state.ahead = data.ahead;
       if (data.cap) state.cap = data.cap;
@@ -723,7 +730,6 @@
 
     var q1 = getSelectedChip("chipGroup1");
     var params = {
-      action: "submit",
       email: fEmail.value,
       name: $("fName") ? $("fName").value : "",
       handle: $("fHandle") ? $("fHandle").value : "",
@@ -735,7 +741,7 @@
     };
 
     setSubmitLoading(true);
-    jsonp(params, function (err, data) {
+    backendPost(params, function (err, data) {
       setSubmitLoading(false);
       if (err || !data || !data.ok) {
         alert("Something went wrong submitting — please try again in a moment.");
