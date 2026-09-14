@@ -432,15 +432,19 @@
     if (stageWrap) stageWrap.style.perspective = TUNE.perspective + "px";
   }
 
-  // essay photo pan/zoom — object-position picks which part of the (full,
-  // un-cropped) source is shown at cover-scale; transform: scale() then
-  // zooms in further from the center of that view. Independent controls.
-  var PHOTO_TUNE = { zoom: 1, panX: 50, panY: 50 };
+  // essay photo pan/zoom. object-position alone can't pan reliably: at
+  // zoom 1 the cover-fit's width often already exactly matches the box
+  // (zero horizontal slack), so panning that axis visibly does nothing.
+  // translate() inside the same transform as scale() always has room to
+  // move on both axes once zoomed in at all, since it shifts relative to
+  // the element's own (now-enlarged) box rather than the cover-fit's
+  // leftover overflow. Zoom in a bit before panning far, or panning may
+  // expose empty box background at the edge.
+  var PHOTO_TUNE = { zoom: 1.3, panX: 0, panY: 0 };
   function applyPhotoTune() {
     var img = $("essayPhoto");
     if (!img) return;
-    img.style.objectPosition = PHOTO_TUNE.panX + "% " + PHOTO_TUNE.panY + "%";
-    img.style.transform = "scale(" + PHOTO_TUNE.zoom + ")";
+    img.style.transform = "scale(" + PHOTO_TUNE.zoom + ") translate(" + PHOTO_TUNE.panX + "%, " + PHOTO_TUNE.panY + "%)";
   }
 
   // one slider row bound directly to a field on the given tune object
@@ -531,8 +535,8 @@
     var photoDump = makeDump(function () { return PHOTO_TUNE; });
     [
       ["zoom", 1, 3, 0.01, "Zoom"],
-      ["panX", 0, 100, 1, "Pan X (%)"],
-      ["panY", 0, 100, 1, "Pan Y (%)"],
+      ["panX", -50, 50, 1, "Pan X (%, 0=center)"],
+      ["panY", -50, 50, 1, "Pan Y (%, 0=center)"],
     ].forEach(function (f) {
       addSliderRow(panel, PHOTO_TUNE, f[0], f[1], f[2], f[3], f[4], function () {
         applyPhotoTune();
