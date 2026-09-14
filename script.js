@@ -440,7 +440,7 @@
   // the element's own (now-enlarged) box rather than the cover-fit's
   // leftover overflow. Zoom in a bit before panning far, or panning may
   // expose empty box background at the edge.
-  var PHOTO_TUNE = { zoom: 1.3, panX: 0, panY: 0 };
+  var PHOTO_TUNE = { zoom: 1.25, panX: 4, panY: -2 };
   function applyPhotoTune() {
     var img = $("essayPhoto");
     if (!img) return;
