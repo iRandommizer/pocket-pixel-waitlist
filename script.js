@@ -315,6 +315,20 @@
 
   // ---------- flythrough ----------
 
+  // all tunable constants for the flythrough motion, live-editable via the
+  // ?tune=1 debug panel (see buildTunePanel below) — flyCards() re-reads
+  // these every call, so dragging a slider takes effect immediately
+  var TUNE = {
+    perspective: 1800,
+    coverage: 0.75,
+    window: 0.34,
+    headStart: 0.12,
+    farZ: -2900,
+    nearZ: 480,
+    fadeEdge: 0.18,
+    pull: 0.5,
+  };
+
   function flyCards() {
     var wrap = refs.carWrap, stage = refs.stage;
     if (!wrap || !stage) return;
@@ -326,17 +340,16 @@
     state.p = p;
     var cards = Array.from(stage.querySelectorAll(".pp-card"));
 
-    // size the whole composition so its outermost cards land at ~75% of the
-    // stage's actual width/height, instead of a guessed multiplier
+    // size the whole composition so its outermost cards land at COVERAGE
+    // fraction of the stage's actual width/height
     var stageRect = stage.getBoundingClientRect();
-    var COVERAGE = 0.75;
     var maxBaseX = 0, maxBaseY = 0;
     cards.forEach(function (el) {
       maxBaseX = Math.max(maxBaseX, Math.abs(Number(el.dataset.x)));
       maxBaseY = Math.max(maxBaseY, Math.abs(Number(el.dataset.y)));
     });
-    var scaleX = maxBaseX > 0 ? (stageRect.width * COVERAGE / 2) / maxBaseX : 1;
-    var scaleY = maxBaseY > 0 ? (stageRect.height * COVERAGE / 2) / maxBaseY : 1;
+    var scaleX = maxBaseX > 0 ? (stageRect.width * TUNE.coverage / 2) / maxBaseX : 1;
+    var scaleY = maxBaseY > 0 ? (stageRect.height * TUNE.coverage / 2) / maxBaseY : 1;
 
     // how far off-center each card's own position sits (post-scale), relative
     // to the most extreme card — used below to pull outlying cards toward the
@@ -349,31 +362,30 @@
 
     // every card gets an identical-shaped, identical-duration arrival: it
     // fades/zooms in, holds, then fades/zooms out over the same fraction of
-    // scroll (WINDOW). Only WHEN that window starts differs, staggered by
-    // each card's authored depth order, so cards still arrive in sequence —
-    // this makes "the same amount of scroll" produce the same motion for
-    // every card, instead of near cards rushing through their arc while far
-    // cards linger. HEAD_START pulls every window earlier so the closest
-    // card is already fully visible at rest, with no scroll needed.
-    var WINDOW = 0.34, FAR_Z = -2900, NEAR_Z = 480, HEAD_START = 0.12;
+    // scroll (TUNE.window). Only WHEN that window starts differs, staggered
+    // by each card's authored depth order, so cards still arrive in
+    // sequence — this makes "the same amount of scroll" produce the same
+    // motion for every card. TUNE.headStart pulls every window earlier so
+    // the closest card is already fully visible at rest, with no scroll
+    // needed.
     var sorted = cards.slice().sort(function (a, b) { return Number(b.dataset.z) - Number(a.dataset.z); });
     cards.forEach(function (el) {
       var rank = sorted.indexOf(el);
-      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - WINDOW) - HEAD_START;
-      var t = Math.max(0, Math.min(1, (p - offset) / WINDOW));
-      var z = FAR_Z + t * (NEAR_Z - FAR_Z);
+      var offset = (cards.length > 1 ? rank / (cards.length - 1) : 0) * (1 - TUNE.window) - TUNE.headStart;
+      var t = Math.max(0, Math.min(1, (p - offset) / TUNE.window));
+      var z = TUNE.farZ + t * (TUNE.nearZ - TUNE.farZ);
       var opacity;
       if (state.focused) {
         opacity = el === state.focused ? 1 : 0.05;
       } else {
-        var fadeIn = Math.min(1, t / 0.18);
-        var fadeOut = t > 0.82 ? Math.max(0, 1 - (t - 0.82) / 0.18) : 1;
+        var fadeIn = Math.min(1, t / TUNE.fadeEdge);
+        var fadeOut = t > (1 - TUNE.fadeEdge) ? Math.max(0, 1 - (t - (1 - TUNE.fadeEdge)) / TUNE.fadeEdge) : 1;
         opacity = Math.min(fadeIn, fadeOut) * (el.offsetWidth < 120 ? 0.55 : 1);
         var baseX = Number(el.dataset.x) * scaleX, baseY = Number(el.dataset.y) * scaleY;
         var outside = Math.min(1, Math.sqrt(baseX * baseX + baseY * baseY) / (maxMag || 1));
         // pull ramps in as the card advances through ITS OWN window, so it
         // reads as the card visibly closing in toward center, not a static offset
-        var hold = 1 - 0.5 * outside * t;
+        var hold = 1 - TUNE.pull * outside * t;
         var ox = baseX * hold, oy = baseY * hold;
         el.style.transform = "translate3d(" + ox + "px," + oy +
           "px," + z.toFixed(0) + "px) rotate(" + el.dataset.rot + "deg)";
@@ -384,6 +396,78 @@
     if (refs.carCount) refs.carCount.textContent = "0" + Math.min(3, Math.floor(p * 3 + 0.34) + 1) + " / 03";
     if (refs.carBar) refs.carBar.style.width = (p * 100).toFixed(1) + "%";
   }
+
+  function applyPerspective() {
+    var stageWrap = refs.stage && refs.stage.parentElement;
+    if (stageWrap) stageWrap.style.perspective = TUNE.perspective + "px";
+  }
+
+  // live debug panel for tuning the flythrough — visit the page with
+  // ?tune=1 to see it. Never shown otherwise, so it can't reach real visitors.
+  function buildTunePanel() {
+    var FIELDS = [
+      ["perspective", 500, 4000, 10, "Perspective (px)"],
+      ["coverage", 0.2, 1.2, 0.01, "Coverage (% of stage)"],
+      ["window", 0.1, 0.9, 0.01, "Window (scroll frac. per card)"],
+      ["headStart", 0, 0.5, 0.01, "Head start"],
+      ["farZ", -6000, -500, 10, "Far Z"],
+      ["nearZ", 0, 1200, 10, "Near Z"],
+      ["fadeEdge", 0.02, 0.4, 0.01, "Fade edge frac."],
+      ["pull", 0, 1, 0.01, "Centering pull strength"],
+    ];
+    var panel = document.createElement("div");
+    panel.style.cssText = "position:fixed;top:0;right:0;bottom:0;z-index:999;overflow-y:auto;" +
+      "width:230px;padding:12px;background:#0a0d0bf2;border-left:1px solid #ff7300;" +
+      "font-family:'VT323',monospace;font-size:15px;color:#efe6d2;";
+    var title = document.createElement("div");
+    title.textContent = "FLYTHROUGH TUNING";
+    title.style.cssText = "font-family:'Tiny5',monospace;font-size:13px;letter-spacing:.06em;color:#ff7300;margin-bottom:10px;";
+    panel.appendChild(title);
+
+    var dump = document.createElement("pre");
+    dump.style.cssText = "white-space:pre-wrap;word-break:break-all;border-top:1px dashed #24322b;" +
+      "margin-top:10px;padding-top:8px;font-size:12px;color:#8f9e8a;";
+    function refreshDump() {
+      dump.textContent = JSON.stringify(TUNE, null, 1);
+    }
+
+    FIELDS.forEach(function (f) {
+      var key = f[0], min = f[1], max = f[2], step = f[3], label = f[4];
+      var row = document.createElement("div");
+      row.style.marginBottom = "10px";
+      var lab = document.createElement("div");
+      lab.style.cssText = "font-size:13px;color:#b0a893;margin-bottom:2px;";
+      var valSpan = document.createElement("span");
+      valSpan.style.color = "#ff7300";
+      valSpan.textContent = TUNE[key];
+      lab.textContent = label + ": ";
+      lab.appendChild(valSpan);
+      var input = document.createElement("input");
+      input.type = "range";
+      input.min = String(min);
+      input.max = String(max);
+      input.step = String(step);
+      input.value = String(TUNE[key]);
+      input.style.width = "100%";
+      input.addEventListener("input", function () {
+        TUNE[key] = Number(input.value);
+        valSpan.textContent = TUNE[key];
+        if (key === "perspective") applyPerspective();
+        flyCards();
+        refreshDump();
+      });
+      row.appendChild(lab);
+      row.appendChild(input);
+      panel.appendChild(row);
+    });
+
+    refreshDump();
+    panel.appendChild(dump);
+    document.body.appendChild(panel);
+    applyPerspective();
+  }
+
+  if (location.search.indexOf("tune=1") !== -1) buildTunePanel();
 
   // videos play ambiently whenever their card is meaningfully visible, not
   // only when tapped — muted + playsinline keep this within autoplay policy
