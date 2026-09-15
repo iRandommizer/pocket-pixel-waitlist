@@ -57,6 +57,7 @@
       dest: "LOJA DE<br />CHAVEIROS",
       phEmail: "seu email", phName: "nome", phEmail2: "email",
       phHandle: "instagram (opcional)", phOwn: "…ou diga com suas palavras", phElse: "opcional",
+      fEmailErr: "DIGITE UM EMAIL VÁLIDO",
     },
     es: {
       heroLabel: "( LISTA DE ESPERA )",
@@ -108,6 +109,7 @@
       dest: "TIENDA DE<br />LLAVEROS",
       phEmail: "tu email", phName: "nombre", phEmail2: "email",
       phHandle: "instagram (opcional)", phOwn: "…o dilo con tus palabras", phElse: "opcional",
+      fEmailErr: "INGRESA UN EMAIL VÁLIDO",
     },
   };
 
@@ -724,9 +726,22 @@
     });
   }
 
+  var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function showEmailError(show) {
+    var errEl = $("fEmailError");
+    if (errEl) errEl.hidden = !show;
+  }
+
   function submitForm() {
     var fEmail = $("fEmail");
-    if (!fEmail || !fEmail.value.trim()) { fEmail && fEmail.focus(); return; }
+    if (!fEmail) return;
+    if (!EMAIL_RE.test(fEmail.value.trim())) {
+      showEmailError(true);
+      fEmail.focus();
+      return;
+    }
+    showEmailError(false);
 
     var q1 = getSelectedChip("chipGroup1");
     var params = {
@@ -743,6 +758,11 @@
     setSubmitLoading(true);
     backendPost(params, function (err, data) {
       setSubmitLoading(false);
+      if (data && data.error === "invalid_email") {
+        showEmailError(true);
+        fEmail.focus();
+        return;
+      }
       if (err || !data || !data.ok) {
         alert("Something went wrong submitting — please try again in a moment.");
         return;
@@ -781,6 +801,8 @@
   if (refs.heroSubmit) refs.heroSubmit.addEventListener("click", function () { quickSubmit(refs.heroEmail); });
   if (barSubmit) barSubmit.addEventListener("click", function () { quickSubmit($("barEmail")); });
   if (confirmBack) confirmBack.addEventListener("click", resetForm);
+  var fEmailInput = $("fEmail");
+  if (fEmailInput) fEmailInput.addEventListener("input", function () { showEmailError(false); });
 
   // ---------- queue simulation ----------
   // Only the front (rightmost) walker has an externally driven goal, tied to how
