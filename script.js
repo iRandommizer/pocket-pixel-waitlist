@@ -132,6 +132,7 @@
     touch: window.matchMedia("(hover: none)").matches,
     focused: null,
     p: 0,
+    connected: false,
   };
 
   function withTimeout(promise, ms) {
@@ -141,30 +142,51 @@
     ]);
   }
 
+  // Mobile connections (especially Instagram's in-app browser on cellular)
+  // fail single requests often enough that one attempt isn't reliable. A
+  // retried POST is safe here specifically because the backend dedupes by
+  // email (see Code.gs) — a retry after a dropped response just returns the
+  // same existing position, never a duplicate row.
+  function withRetry(makeAttempt, attempts, delayMs) {
+    return new Promise(function (resolve, reject) {
+      function tryOnce(remaining) {
+        makeAttempt().then(resolve).catch(function (err) {
+          if (remaining <= 1) { reject(err); return; }
+          setTimeout(function () { tryOnce(remaining - 1); }, delayMs);
+        });
+      }
+      tryOnce(attempts);
+    });
+  }
+
   function backendGet(params, onDone) {
     var qs = Object.keys(params).map(function (k) {
       return encodeURIComponent(k) + "=" + encodeURIComponent(params[k] == null ? "" : params[k]);
     }).join("&");
-    withTimeout(fetch(PROXY_URL + "?" + qs), 10000)
-      .then(function (r) { return r.json(); })
+    withRetry(function () {
+      return withTimeout(fetch(PROXY_URL + "?" + qs), 8000).then(function (r) { return r.json(); });
+    }, 3, 700)
       .then(function (data) { onDone(null, data); })
       .catch(function (err) { onDone(err); });
   }
 
   function backendPost(body, onDone) {
-    withTimeout(fetch(PROXY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }), 10000)
-      .then(function (r) { return r.json(); })
+    withRetry(function () {
+      return withTimeout(fetch(PROXY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }), 8000).then(function (r) { return r.json(); });
+    }, 3, 700)
       .then(function (data) { onDone(null, data); })
       .catch(function (err) { onDone(err); });
   }
 
-  function fetchQueueCount() {
+  function fetchQueueCount(onConnected) {
     backendGet({ action: "queue" }, function (err, data) {
-      if (err || !data) return; // keep the local placeholder rather than break the page
+      var ok = !err && data && typeof data.ahead === "number";
+      if (onConnected) onConnected(ok);
+      if (!ok) return; // keep the local placeholder rather than break the page
       state.ahead = data.ahead;
       if (data.cap) state.cap = data.cap;
       renderQueue();
@@ -700,28 +722,58 @@
     return sel ? sel.dataset.i18n : "";
   }
 
+  // captured once per button, the very first time it's touched — never
+  // re-captured later, so a "SENDING..."/"CONNECTING..."/"OFFLINE..." label
+  // can never overwrite what "restore to normal" actually means
+  var pristineLabels = new Map();
+  function pristineLabel(b) {
+    if (!pristineLabels.has(b)) pristineLabels.set(b, b.textContent);
+    return pristineLabels.get(b);
+  }
+
   var loadingTimers = new Map();
-  function setSubmitLoading(loading) {
+  function setSubmitLoading(loading, label) {
+    label = label || "SENDING";
     [formSubmit, barSubmit, refs.heroSubmit].forEach(function (b) {
       if (!b) return;
+      pristineLabel(b);
       if (loading) {
         b.disabled = true;
         if (loadingTimers.has(b)) return;
-        var original = b.textContent;
         var n = 0;
         var timer = setInterval(function () {
           n = (n + 1) % 4;
-          b.textContent = "SENDING" + ".".repeat(n);
+          b.textContent = label + ".".repeat(n);
         }, 280);
-        loadingTimers.set(b, { timer: timer, original: original });
+        loadingTimers.set(b, timer);
       } else {
         b.disabled = false;
-        var entry = loadingTimers.get(b);
-        if (entry) {
-          clearInterval(entry.timer);
-          b.textContent = entry.original;
+        var timer2 = loadingTimers.get(b);
+        if (timer2) {
+          clearInterval(timer2);
           loadingTimers.delete(b);
         }
+        b.textContent = pristineLabel(b);
+      }
+    });
+  }
+
+  // Probes the backend via the queue-count endpoint before letting anyone
+  // submit — if it's unreachable right now, submitting would just fail with
+  // no clear reason. Only gates the submit buttons, not the form fields, so
+  // people can still read/fill the form while this resolves in the background.
+  var OFFLINE_TEXT = { en: "OFFLINE — TAP TO RETRY", pt: "OFFLINE — TOQUE PARA TENTAR", es: "SIN CONEXIÓN — TOCA PARA REINTENTAR" };
+
+  function checkConnectivity() {
+    setSubmitLoading(true, "CONNECTING");
+    fetchQueueCount(function (ok) {
+      setSubmitLoading(false);
+      state.connected = ok;
+      if (!ok) {
+        var msg = OFFLINE_TEXT[state.lang] || OFFLINE_TEXT.en;
+        [formSubmit, barSubmit, refs.heroSubmit].forEach(function (b) {
+          if (b) b.textContent = msg;
+        });
       }
     });
   }
@@ -734,6 +786,7 @@
   }
 
   function submitForm() {
+    if (!state.connected) { checkConnectivity(); return; }
     var fEmail = $("fEmail");
     if (!fEmail) return;
     if (!EMAIL_RE.test(fEmail.value.trim())) {
@@ -998,7 +1051,7 @@
   applyScrollLength();
   initQueue();
   renderQueue();
-  fetchQueueCount();
+  checkConnectivity();
 
   var scrollCue = $("scrollCue");
   function onScroll() {
