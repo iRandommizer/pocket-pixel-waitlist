@@ -1,3 +1,8 @@
+@font-face{font-family:'Tiny5';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fonts/tiny5-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'VT323';font-style:normal;font-weight:400;font-display:swap;src:url(assets/fonts/vt323-latin-400-normal.woff2) format('woff2')}
+@font-face{font-family:'Scoutie Sans';font-style:normal;font-weight:200 800;font-display:swap;src:url(assets/fonts/scoutie-sans-latin-wght-normal.woff2) format('woff2-variations')}
+@font-face{font-family:'Scoutie Sans';font-style:italic;font-weight:200 800;font-display:swap;src:url(assets/fonts/scoutie-sans-latin-wght-italic.woff2) format('woff2-variations')}
+
 html,body{margin:0;padding:0;background:#07080a}
 *{box-sizing:border-box}
 a{color:#ff7300;text-decoration:none}
