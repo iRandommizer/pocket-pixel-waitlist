@@ -57,8 +57,9 @@
       barBtn: "ENTRAR →",
       dest: "LOJA DE<br />CHAVEIROS",
       phEmail: "seu email", phName: "nome", phEmail2: "email",
-      phHandle: "instagram (opcional)", phOwn: "…ou diga com suas palavras", phElse: "opcional",
+      phHandleReq: "@seuperfil (instagram)", phOwn: "…ou diga com suas palavras", phElse: "opcional",
       fEmailErr: "DIGITE UM EMAIL VÁLIDO",
+      fHandleErr: "DIGITE UM PERFIL DO INSTAGRAM VÁLIDO",
     },
     es: {
       heroLabel: "( LISTA DE ESPERA )",
@@ -110,8 +111,9 @@
       barBtn: "ENTRAR →",
       dest: "TIENDA DE<br />LLAVEROS",
       phEmail: "tu email", phName: "nombre", phEmail2: "email",
-      phHandle: "instagram (opcional)", phOwn: "…o dilo con tus palabras", phElse: "opcional",
+      phHandleReq: "@tuperfil (instagram)", phOwn: "…o dilo con tus palabras", phElse: "opcional",
       fEmailErr: "INGRESA UN EMAIL VÁLIDO",
+      fHandleErr: "INGRESA UN PERFIL DE INSTAGRAM VÁLIDO",
     },
   };
 
@@ -781,16 +783,37 @@
   }
 
   var EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  var HANDLE_RE = /^[A-Za-z0-9._]{1,30}$/;
+
+  // Instagram handles are collected with or without a leading "@" — strip
+  // it so validation and what's stored are consistent either way.
+  function normalizeHandle(v) {
+    return String(v || "").trim().replace(/^@+/, "");
+  }
 
   function showEmailError(show) {
     var errEl = $("fEmailError");
     if (errEl) errEl.hidden = !show;
   }
 
+  function showHandleError(show) {
+    var errEl = $("fHandleError");
+    if (errEl) errEl.hidden = !show;
+  }
+
   function submitForm() {
     if (!state.connected) { checkConnectivity(); return; }
-    var fEmail = $("fEmail");
-    if (!fEmail) return;
+    var fEmail = $("fEmail"), fHandle = $("fHandle");
+    if (!fEmail || !fHandle) return;
+
+    var handleClean = normalizeHandle(fHandle.value);
+    if (!HANDLE_RE.test(handleClean)) {
+      showHandleError(true);
+      fHandle.focus();
+      return;
+    }
+    showHandleError(false);
+
     if (!EMAIL_RE.test(fEmail.value.trim())) {
       showEmailError(true);
       fEmail.focus();
@@ -802,7 +825,7 @@
     var params = {
       email: fEmail.value,
       name: $("fName") ? $("fName").value : "",
-      handle: $("fHandle") ? $("fHandle").value : "",
+      handle: handleClean,
       putOnYours: q1 === "q1e" && refs.ownAnswer && refs.ownAnswer.value ? refs.ownAnswer.value : (Q1_LABELS[q1] || ""),
       howMany: Q2_LABELS[getSelectedChip("chipGroup2")] || "",
       notes: $("fNotes") ? $("fNotes").value : "",
@@ -813,6 +836,11 @@
     setSubmitLoading(true);
     backendPost(params, function (err, data) {
       setSubmitLoading(false);
+      if (data && data.error === "invalid_handle") {
+        showHandleError(true);
+        fHandle.focus();
+        return;
+      }
       if (data && data.error === "invalid_email") {
         showEmailError(true);
         fEmail.focus();
@@ -843,21 +871,24 @@
     if (refs.confirmBlock) refs.confirmBlock.hidden = true;
   }
 
-  // hero/bar are shortcuts: they only collect an email, so feed it into the
-  // real form's email field (if that's still empty) before submitting
-  function quickSubmit(emailInput) {
-    var fEmail = $("fEmail");
+  // hero/bar are shortcuts: they only collect handle + email, so feed those
+  // into the real form's fields (if still empty) before submitting
+  function quickSubmit(emailInput, handleInput) {
+    var fEmail = $("fEmail"), fHandle = $("fHandle");
     if (fEmail && emailInput && emailInput.value && !fEmail.value) fEmail.value = emailInput.value;
+    if (fHandle && handleInput && handleInput.value && !fHandle.value) fHandle.value = handleInput.value;
     submitForm();
   }
 
   var formSubmit = $("formSubmit"), barSubmit = $("barSubmit"), confirmBack = $("confirmBack");
   if (formSubmit) formSubmit.addEventListener("click", submitForm);
-  if (refs.heroSubmit) refs.heroSubmit.addEventListener("click", function () { quickSubmit(refs.heroEmail); });
-  if (barSubmit) barSubmit.addEventListener("click", function () { quickSubmit($("barEmail")); });
+  if (refs.heroSubmit) refs.heroSubmit.addEventListener("click", function () { quickSubmit(refs.heroEmail, $("heroHandle")); });
+  if (barSubmit) barSubmit.addEventListener("click", function () { quickSubmit($("barEmail"), $("barHandle")); });
   if (confirmBack) confirmBack.addEventListener("click", resetForm);
   var fEmailInput = $("fEmail");
   if (fEmailInput) fEmailInput.addEventListener("input", function () { showEmailError(false); });
+  var fHandleInput = $("fHandle");
+  if (fHandleInput) fHandleInput.addEventListener("input", function () { showHandleError(false); });
 
   // ---------- queue simulation ----------
   // Only the front (rightmost) walker has an externally driven goal, tied to how

@@ -81,8 +81,14 @@ function handleSubmit(p) {
     return { ok: false, error: "invalid_email" };
   }
 
+  // Instagram handle is required (collected with or without a leading "@";
+  // stored without it). Mirrors the client-side HANDLE_RE in script.js.
+  var handle = String(p.handle || "").trim().replace(/^@+/, "");
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(handle)) {
+    return { ok: false, error: "invalid_handle" };
+  }
+
   var name = String(p.name || "").trim().slice(0, 100);
-  var handle = String(p.handle || "").trim().slice(0, 100);
   var putOnYours = String(p.putOnYours || "").trim().slice(0, 300);
   var howMany = String(p.howMany || "").trim().slice(0, 100);
   var notes = String(p.notes || "").trim().slice(0, 1000);

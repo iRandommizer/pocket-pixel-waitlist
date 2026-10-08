@@ -1,4 +1,5 @@
 <title>Pocket Pixel</title>
+<link href="https://fonts.googleapis.com/css2?family=Tiny5&family=VT323&family=Scoutie+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="style.css">
 <meta property="og:title" content="Pocket Pixel — A Tiny Screen For The Things You Love" />
 <meta property="og:description" content="A 1.64&quot; pocket keychain screen for your own pixel art, photos and gifs. Made in small batches. Join the waiting list." />
@@ -92,6 +93,7 @@
     <h1 data-i18n="heroH1" style="margin: 0; font-family: 'Tiny5', monospace; font-weight: 700; font-size: 26px; line-height: 1.22; color: #efe6d2;">A TINY SCREEN<br />FOR THE THINGS<br /><span style="color: #ff7300;">YOU LOVE.</span></h1>
     <p data-i18n="heroSub" style="margin: 0; font-family: 'Scoutie Sans', system-ui, sans-serif; font-weight: 400; font-size: 18px; line-height: 1.5; color: #b9b09b;">Photos, pixel art, gifs, little moments. Put whatever you like on the screen.</p>
     <div style="display: grid; gap: 9px; margin-top: 2px;">
+      <input id="heroHandle" data-i18n-ph="phHandleReq" placeholder="@yourhandle (instagram)" style="background: #0a0d0b; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 19px; padding: 14px 13px; outline: none;" />
       <input id="heroEmail" data-i18n-ph="phEmail" placeholder="your email" style="background: #0a0d0b; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 19px; padding: 14px 13px; outline: none;" />
       <button id="heroSubmit" data-i18n="heroBtn" style="font-family: 'Tiny5', monospace; font-size: 16px; letter-spacing: .08em; color: #050706; background: #ff7300; border: none; padding: 17px; cursor: pointer;">GET IN LINE →</button>
     </div>
@@ -219,10 +221,11 @@
 
       <input id="hpWebsite" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0;" />
       <div style="display: grid; gap: 8px; margin-top: 4px;">
+        <input id="fHandle" data-i18n-ph="phHandleReq" placeholder="@yourhandle (instagram)" class="pp-field-focus" style="background: #0a0d0b; border: 1px solid #2a3a31; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 12px; outline: none;" />
+        <span id="fHandleError" data-i18n="fHandleErr" hidden style="font-family: 'Tiny5', monospace; font-size: 13px; letter-spacing: .05em; color: #ff7300; margin-top: -2px;">PLEASE ENTER A VALID INSTAGRAM HANDLE</span>
         <input id="fName" data-i18n-ph="phName" placeholder="name" class="pp-field-focus" style="background: #0a0d0b; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 12px; outline: none;" />
-        <input id="fEmail" data-i18n-ph="phEmail2" placeholder="email" class="pp-field-focus" style="background: #0a0d0b; border: 1px solid #2a3a31; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 12px; outline: none;" />
+        <input id="fEmail" data-i18n-ph="phEmail2" placeholder="email" class="pp-field-focus" style="background: #0a0d0b; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 12px; outline: none;" />
         <span id="fEmailError" data-i18n="fEmailErr" hidden style="font-family: 'Tiny5', monospace; font-size: 13px; letter-spacing: .05em; color: #ff7300; margin-top: -2px;">PLEASE ENTER A VALID EMAIL</span>
-        <input id="fHandle" data-i18n-ph="phHandle" placeholder="instagram handle (optional)" class="pp-field-focus" style="background: #0a0d0b; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 12px; outline: none;" />
       </div>
 
       <div style="display: grid; gap: 9px; margin-top: 10px; padding-top: 14px; border-top: 1px dashed #24322b;">
@@ -303,9 +306,12 @@
         <span style="width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid #ff7300;"></span>
       </div>
     </div>
-    <div style="display: flex; gap: 8px; padding: 11px 14px; align-items: center;">
-      <input id="barEmail" data-i18n-ph="phEmail" placeholder="your email" style="flex: 1; min-width: 0; background: #07080a; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 11px; outline: none;" />
-      <button id="barSubmit" data-i18n="barBtn" class="pp-cta-hover" style="font-family: 'Tiny5', monospace; font-size: 13px; letter-spacing: .07em; color: #050706; background: #ff7300; border: none; padding: 11px 13px; cursor: pointer;">JOIN →</button>
+    <div style="display: grid; gap: 7px; padding: 11px 14px;">
+      <input id="barHandle" data-i18n-ph="phHandleReq" placeholder="@yourhandle (instagram)" style="background: #07080a; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 11px; outline: none;" />
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input id="barEmail" data-i18n-ph="phEmail" placeholder="your email" style="flex: 1; min-width: 0; background: #07080a; border: 1px solid #24322b; color: #d8cfb8; font-family: 'VT323', monospace; font-size: 18px; padding: 11px; outline: none;" />
+        <button id="barSubmit" data-i18n="barBtn" class="pp-cta-hover" style="font-family: 'Tiny5', monospace; font-size: 13px; letter-spacing: .07em; color: #050706; background: #ff7300; border: none; padding: 11px 13px; cursor: pointer;">JOIN →</button>
+      </div>
     </div>
   </div>
 </div>
